@@ -611,7 +611,77 @@ sum(df.take1$take_predictions == df.take1$sucess)/nrow(df.take1)
 take.tree
 #########################################################################################
 
+##### BY KIRSTEN #####
+#mark the Canadian women team raw data with 3 situation types
+nRAW<-RAW[str_detect(RAW$team_name,'Canada'),]
+nRAW<-nRAW[str_detect(nRAW$team_name,'Women'),]
+nRAW<-select(nRAW,team_name,player_name,situation_type,event_type,event_successful,event_time,x_event,y_event,receiver_x,receiver_y,shot_type,period) %>% mutate(nRAW, homeno=substr(situation_type,start=1,stop=1),oppno=substr(situation_type,start=6,stop=6))
+nRAW$homeno<-as.numeric(nRAW$homeno)
+nRAW$oppno<-as.numeric(nRAW$oppno)
+is.numeric(nRAW$oppno)
+for (i in 1:nrow(nRAW)){
+  if (nRAW['homeno'][i,]>nRAW['oppno'][i,]){
+    nRAW['situation_type'][i,]<-'pp'
+  }
+  else if(nRAW['homeno'][i,]==nRAW['oppno'][i,]){
+    nRAW['situation_type'][i,]<-'normal'
+  }
+  else {
+    nRAW['situation_type'][i,]<-'pk'
+  }
+}
+warning()
+summary(nRAW)
+nRAW <- subset(nRAW, select = -homono)
 
+#Success rate for all types of evet under 3 different situation
+nRAW %>% group_by(situation_type,event_successful) %>% summarise(n_woman=n()) %>% mutate(rate=n_woman/sum(n_woman))
+#pp:.736 pk:.715 normal:.665
+
+nRAW %>% filter(situation_type=='pp') %>% group_by(event_type,event_successful) %>% summarise(n_woman=n()) %>% mutate(rate=n_woman/sum(n_woman))
+nRAW %>% filter(situation_type=='pk') %>% group_by(event_type,event_successful) %>% summarise(n_woman=n()) %>% mutate(rate=n_woman/sum(n_woman))
+nRAW %>% filter(situation_type=='normal') %>% group_by(event_type,event_successful) %>% summarise(n_woman=n()) %>% mutate(rate=n_woman/sum(n_woman))
+#pp: faceoff/takeaway 1 play.851 shot .0431
+#pk: faceoff/takeaway 1 play .608
+#normal: faceoff/takeaway 1 play .709 shot.0382
+
+
+#filter out faceoff data
+fRAW <- filter(nRAW,event_type=='Faceoff') 
+fRAW %>% group_by(situation_type,event_successful) %>% summarise(f_woman=n()) %>% mutate(rate=f_woman/sum(f_woman))
+sRAW <- filter(nRAW,event_type=='Shot') 
+sRAW %>% group_by(situation_type,event_successful) %>% summarise(s_woman=n()) %>% mutate(rate=s_woman/sum(s_woman))
+#the more successful faceoffs, the higher the shot successful rate is
+
+#look at the faceoffs' location
+fRAW$x_event<-as.numeric(fRAW$x_event)
+fRAW$y_event<-as.numeric(fRAW$y_event)
+fRAW <- mutate(fRAW, defoff=0)
+names(fRAW)
+for(i in 1:nrow(fRAW)) {
+  if(fRAW['x_event'][i,]>100){
+    fRAW['defoff'][i,]<-1
+  }
+}
+#Start Zone Ratio
+fRAW %>% group_by(situation_type,defoff) %>% summarise(f_location=n()) %>% mutate(szratio=f_location/sum(f_location))
+#start zone ratio in each period
+fRAW %>% group_by(game_date,period,defoff) %>% summarise(f_location=n()) %>% mutate(szratio=f_location/sum(f_location)) %>% filter(defoff==1)
+#successful shot in each period
+sRAW <- mutate(sRAW, goal=0)
+for(i in 1:nrow(sRAW)) {
+  if(sRAW['event_successful'][i,]=='t'){
+    sRAW['goal'][i,]<-1
+  }
+}
+sRAW %>% group_by(game_date,period,goal) %>% summarise(sshot=n()) %>% mutate(rate=sshot/sum(sshot)) %>% filter(goal==1)
+
+#players with the most faceoff
+fRAW %>% group_by(player_name,event_successful) %>% summarise(f_count=n()) %>% filter(event_successful=='t') %>% arrange(desc(f_count))
+#players with the most faceoff in offensive area
+fRAW %>% group_by(player_name,defoff) %>% summarise(finoff=n()) %>% filter(defoff==1) %>% arrange(desc(finoff))
+#players with the most shot
+sRAW %>% group_by(player_name,event_successful) %>% summarise(s_count=n()) %>% filter(event_successful=='t') %>% arrange(desc(s_count))
 
 
 
